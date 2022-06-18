@@ -1,0 +1,22 @@
+{
+  "name": "face-destructor",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/figuraetymologica/face-destructor.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/figuraetymologica/face-destructor/issues"
+  },
+  "homepage": "https://github.com/figuraetymologica/face-destructor#readme",
+  "dependencies": {
+    "express": "^4.18.1"
+  }
+}
