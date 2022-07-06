@@ -1,10 +1,10 @@
-let faceapi;
-let video;
-let detections;
+var faceapi;
+var video;
+var detections;
 
-let startButton;
-
+var startButton;
 var cnv;
+var div;
 
 // by default all options are set to true
 const detection_options = {
@@ -12,7 +12,7 @@ const detection_options = {
     withDescriptors: false,
 }
 
-const locationPts = {
+locationPts = {
     mouth: [0, 6, 2, 9], //x border, y borders (l, r + top, bottom)
     nose: [4, 8, 0, 6],
     leftEye: [0, 3, 1, 5],
@@ -21,46 +21,43 @@ const locationPts = {
     leftEyeBrow: [0, 4, 2, 0]
 }
 
-let savedPos = [];
+data = []; //alle Gesichtsdaten
+let addedFace = false;
 
-let changePos = false; //bewegt sich das erkannte Gesicht?
-let addedFace = false; //kommt ein weiteres Gesicht dazu?
-
-data = [];
-
-let scaling = {mouth: [1, 1], nose: [1, 1], leftEye: [1, 1], rightEye: [1, 1],
-    rightEyeBrow: [1, 1], leftEyeBrow: [1, 1]}
 
 function setup() {
-    cnv = createCanvas(640, 360); //vorher 640 x 360
+    cnv = createCanvas(640, 360).parent("myCanvas");
+    div = createDiv('<br>face-api models are loading...');
+    background(0);
+    fill(255);
+    textAlign(CENTER, CENTER);
+    text("loading...", width/2, height/2);
     push();
-
-    //Button zum Starten/Fullscreen-Aktivierung: Fullscreen kann nur durch Userinteraktion gestartet werden
-    startButton = createButton("start face destructor");
-    startButton.class("button");
-    startButton.mousePressed(startApp);
-    
-    calcScaling(); //Verzerrung für erste Erkennung berechnen
+    // load up your video
+    video = createCapture(VIDEO);
+    video.size(windowWidth, windowHeight);
+    video.hide(); // Hide the video element, and just show the canvas
+    faceapi = ml5.faceApi(video, detection_options, modelReady)
 }
 
 function startApp(){
     startButton.hide();
     cnv.show();
-    cnv = resizeCanvas(displayWidth, displayHeight);
-    cnv = fullscreen(true);
+    cnv = resizeCanvas(windowWidth, windowHeight);
+    //cnv = fullscreen(true);
     console.log(width);
-
-    // load up your video
-    video = createCapture(VIDEO);
-    video.size(width, height);
-    video.hide(); // Hide the video element, and just show the canvas
-    faceapi = ml5.faceApi(video, detection_options, modelReady)
 }
 
 function modelReady() {
-    console.log('ready!')
-    console.log(faceapi)
-    faceapi.detect(gotResults)
+    console.log('ready!');
+    console.log(faceapi);
+    //Button zum Starten/Fullscreen-Aktivierung: Fullscreen kann nur durch Userinteraktion gestartet werden
+    div.hide();
+    startButton = createButton("start face destructor");
+    startButton.class("button");
+    startButton.mousePressed(startApp);
+    faceapi.detect(gotResults);
+
 }
 
 function gotResults(err, result) {
@@ -71,16 +68,16 @@ function gotResults(err, result) {
     // console.log(result)
     detections = result;
 
-    background(255);
+    // background(220);
+    background(0);
     //image(video, 0,0, width, height)
     if (detections) {
         if (detections.length > 0) {
             // console.log(detections)
-            drawLandmarks(detections); //Gesichtsteile abbilden
-            changePos = false;
+            drawLandmarks(detections);
             addedFace = false;
         }else{
-            calcScaling(); //neue Verzerrung berechnen
+            data = [];
         }
     }
     faceapi.detect(gotResults)
@@ -95,22 +92,19 @@ function drawLandmarks(detections){
         const rightEyeBrow = detections[i].parts.rightEyeBrow;
         const leftEyeBrow = detections[i].parts.leftEyeBrow;
 
-        //Einträge für jedes erkannte Gesicht erstellen
-        if(changePos){
-            data.push({pos: {mouth: [0, 0], nose: [0, 0], leftEye: [0, 0], rightEye: [0, 0], 
-                rightEyeBrow: [0, 0], leftEyeBrow: [0, 0]}});
-        }else if(data.length < detections.length){
-            data.push({pos: {mouth: [0, 0], nose: [0, 0], leftEye: [0, 0], rightEye: [0, 0], 
-                rightEyeBrow: [0, 0], leftEyeBrow: [0, 0]}});
+        if(data.length - 1 < i){
+            data.push({scaling: {mouth: [1, 1], nose: [1, 1], leftEye: [1, 1], rightEye: [1, 1],
+                rightEyeBrow: [1, 1], leftEyeBrow: [1, 1]}});
             addedFace = true;
         }
-
+        
         drawPart(mouth, "mouth", i);
         drawPart(nose, "nose", i);
         drawPart(leftEye, "leftEye", i);
         drawPart(leftEyeBrow, "leftEyeBrow", i);
         drawPart(rightEye, "rightEye", i);
         drawPart(rightEyeBrow, "rightEyeBrow", i);
+        
     }
 }
 
@@ -123,26 +117,27 @@ function drawPart(feature, key, detection){
     let areaData;
 
     for(let i = 0; i < pts.length; i++){
-        coord.push([feature[pts[i]]._x, feature[pts[i]]._y]); //Schlüsselpunkte des Gesichtteils sammeln
+        coord.push([feature[pts[i]]._x, feature[pts[i]]._y]);
     }
 
     w = int((coord[1][0] - coord[0][0]) * 1.2);
     h = int((coord[3][1] - coord[2][1]) * 1.2);
     x = int(coord[0][0] + w/2);
     y = int(coord[2][1] + h/2);
-    
-   if(changePos || addedFace){ //wenn das Gesicht sich bewegt oder ein neues hinzugekommen ist: Positionierung neu bestimmen
-        let scaledW = w * scaling[key][0];
-        let scaledH = h * scaling[key][1];
 
-        data[detection].pos[key][0] = random(scaledW/2, width - scaledW/2);
-        data[detection].pos[key][1] = random(scaledH/2, height - scaledH/2);
-        //print(data);
+    if(addedFace){ //wenn ein neues Gesicht hinzugekommen ist: Skalierung neu bestimmen
+        if(key == "leftEye" || key == "rightEye"){
+            data[detection].scaling[key][0] = random(0.5, 5);
+            data[detection].scaling[key][1] = random(0.5, 5);
+        }else{
+            data[detection].scaling[key][0] = random(0.5, 2);
+            data[detection].scaling[key][1] = random(0.5, 2);
+        }
     }
 
     if(x > 0 && y > 0 && w > 0 && h > 0){
         video.loadPixels();
-        //Pixel der betroffenen Regionen ausschneiden
+      
         areaData = createImage(w, h);
         areaData.loadPixels()
         for(let yPos = 0; yPos < h; yPos++){
@@ -160,31 +155,15 @@ function drawPart(feature, key, detection){
         areaData.updatePixels();
         push();
         //translate(width/2, height/2);
-        //translate(width - x, y);
-        translate(width - data[detection].pos[key][0], data[detection].pos[key][1]);
+        translate(width - x, y);
         scale(-1, 1);
-        scale(scaling[key][0], scaling[key][1]);
+        scale(data[detection].scaling[key][0], data[detection].scaling[key][1]);
         imageMode(CENTER);
         image(areaData, 0, 0);
         pop();
     }
 }
 
-function calcScaling(){
-    let landmarks = Object.keys(scaling);
-    for(let i = 0; i < landmarks.length; i++){
-        if(landmarks[i] == "leftEye" || landmarks[i] == "rightEye"){
-            scaling[landmarks[i]][0] = random(0.5, 10);
-            scaling[landmarks[i]][1] = random(0.5, 10);
-        }else{
-            scaling[landmarks[i]][0] = random(0.5, 5);
-            scaling[landmarks[i]][1] = random(0.5, 5);
-        }
-    }
-    changePos = true;
-    data = [];
-}
-
-function calcPos(x, y, widthPic){ //# des zu kopierenden Pixels im Pixelarray berechenen 
+function calcPos(x, y, widthPic){
     return (x+y*widthPic)*4;
 }
